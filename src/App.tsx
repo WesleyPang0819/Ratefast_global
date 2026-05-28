@@ -148,6 +148,60 @@ export default function App() {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  // Install App PWA State
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+
+  useEffect(() => {
+    // Check if running in standalone mode (installed PWA)
+    const checkStandalone = () => {
+      const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || 
+                               (navigator as any).standalone === true;
+      setIsStandalone(isStandaloneMode);
+    };
+    checkStandalone();
+
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
+    const listener = (e: MediaQueryListEvent) => {
+      setIsStandalone(e.matches);
+    };
+    
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', listener);
+    }
+
+    // Listen for beforeinstallprompt event
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Also check on load if it's already installed
+    window.addEventListener('appinstalled', () => {
+      setIsStandalone(true);
+      setDeferredPrompt(null);
+    });
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', listener);
+      }
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleNativeInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to install prompt: ${outcome}`);
+    setDeferredPrompt(null);
+    setIsInstallModalOpen(false);
+  };
+
   const [fromCurrency, setFromCurrency] = useState<Currency>(
     () => SUPPORTED_CURRENCIES.find(c => c.code === 'THB') || SUPPORTED_CURRENCIES[0]
   );
@@ -726,7 +780,26 @@ export default function App() {
               ))}
             </div>
           </div>
+        </div>
 
+        {/* Install App Button Container */}
+        <div className="w-full mt-6 flex justify-center">
+          {isStandalone ? (
+            <div className="text-xs text-slate-400 font-bold bg-slate-100 px-4 py-2.5 rounded-full border border-slate-200/50">
+              App 已安装
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsInstallModalOpen(true)}
+              className="w-full sm:w-auto bg-white hover:bg-slate-50 text-blue-600 hover:text-blue-700 font-extrabold px-6 py-3 rounded-2xl shadow-sm border border-slate-200/55 transition-all cursor-pointer flex items-center justify-center gap-2 text-xs sm:text-sm active:scale-98"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span>安装 App</span>
+            </button>
+          )}
         </div>
 
       </main>
@@ -1038,6 +1111,157 @@ export default function App() {
                   className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-extrabold text-xs sm:text-sm transition-all shadow-md shadow-blue-500/20 cursor-pointer text-center"
                 >
                   {t.settingsClose}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* PWA INSTALL DIALOG MODAL */}
+      <AnimatePresence>
+        {isInstallModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 min-h-screen" id="pwa_install_modal_root">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsInstallModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/50 backdrop-blur-xs cursor-pointer"
+            />
+
+            {/* Modal Card */}
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              transition={{ type: 'spring', duration: 0.4 }}
+              className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] border border-slate-100 z-10"
+              id="pwa_install_modal_content"
+            >
+              {/* Header */}
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="bg-blue-50 text-blue-600 p-2 rounded-xl">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </div>
+                  <h3 className="text-base font-extrabold text-slate-900 leading-none">
+                    安装到手机桌面
+                  </h3>
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => setIsInstallModalOpen(false)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 p-2.5 rounded-full transition-all cursor-pointer"
+                  title="关闭"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+                {/* Section 1: Why install */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                    为什么要安装
+                  </h4>
+                  <ul className="space-y-2.5 pl-1">
+                    <li className="flex items-start gap-2.5 text-slate-700 text-sm font-semibold">
+                      <div className="bg-emerald-50 text-emerald-600 p-0.5 rounded-full mt-0.5 flex-shrink-0">
+                        <Check className="w-3.5 h-3.5" />
+                      </div>
+                      <span>从手机桌面快速进入</span>
+                    </li>
+                    <li className="flex items-start gap-2.5 text-slate-700 text-sm font-semibold">
+                      <div className="bg-emerald-50 text-emerald-600 p-0.5 rounded-full mt-0.5 flex-shrink-0">
+                        <Check className="w-3.5 h-3.5" />
+                      </div>
+                      <span>全屏使用体验</span>
+                    </li>
+                    <li className="flex items-start gap-2.5 text-slate-700 text-sm font-semibold">
+                      <div className="bg-emerald-50 text-emerald-600 p-0.5 rounded-full mt-0.5 flex-shrink-0">
+                        <Check className="w-3.5 h-3.5" />
+                      </div>
+                      <span>像真正的手机 App 一样使用</span>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Section 2: Apple iOS steps */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                    苹果手机安装步骤
+                  </h4>
+                  <ol className="space-y-2 pl-1">
+                    {[
+                      "使用苹果浏览器（Safari）打开本网站",
+                      "点击底部「分享」按钮",
+                      "向下滑动并点击「加入主屏幕」",
+                      "点击右上角「加入」"
+                    ].map((step, idx) => (
+                      <li key={idx} className="flex gap-2.5 text-slate-750 text-sm font-medium">
+                        <span className="bg-slate-100 text-slate-650 font-black w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0">
+                          {idx + 1}
+                        </span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+
+                {/* Section 3: Android steps */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                    安卓手机安装步骤
+                  </h4>
+                  <ol className="space-y-2 pl-1">
+                    {[
+                      "使用谷歌浏览器（Chrome）打开本网站",
+                      "点击右上角菜单（三个点）",
+                      "点击「安装 App」或「添加到主屏幕」",
+                      "确认安装"
+                    ].map((step, idx) => (
+                      <li key={idx} className="flex gap-2.5 text-slate-750 text-sm font-medium">
+                        <span className="bg-slate-100 text-slate-650 font-black w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0">
+                          {idx + 1}
+                        </span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+
+              {/* Bottom Buttons */}
+              <div className="p-4 border-t border-slate-100 flex flex-col gap-2.5 bg-slate-50">
+                {deferredPrompt && (
+                  <button
+                    type="button"
+                    onClick={handleNativeInstall}
+                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-extrabold text-sm transition-all shadow-md shadow-blue-500/20 cursor-pointer text-center"
+                  >
+                    立即安装
+                  </button>
+                )}
+                
+                <button
+                  type="button"
+                  onClick={() => setIsInstallModalOpen(false)}
+                  className={`w-full py-3.5 text-center rounded-2xl font-extrabold text-sm transition-all cursor-pointer ${
+                    deferredPrompt 
+                      ? 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200' 
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20'
+                  }`}
+                >
+                  我知道了
                 </button>
               </div>
             </motion.div>
