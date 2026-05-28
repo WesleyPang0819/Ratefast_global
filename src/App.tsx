@@ -149,10 +149,10 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const [fromCurrency, setFromCurrency] = useState<Currency>(
-    () => SUPPORTED_CURRENCIES.find(c => c.code === 'MYR') || SUPPORTED_CURRENCIES[0]
+    () => SUPPORTED_CURRENCIES.find(c => c.code === 'THB') || SUPPORTED_CURRENCIES[0]
   );
   const [toCurrency, setToCurrency] = useState<Currency>(
-    () => SUPPORTED_CURRENCIES.find(c => c.code === 'THB') || SUPPORTED_CURRENCIES[1]
+    () => SUPPORTED_CURRENCIES.find(c => c.code === 'MYR') || SUPPORTED_CURRENCIES[1]
   );
 
   const currentTabs = useMemo(() => {
@@ -166,7 +166,13 @@ export default function App() {
   const handleTabClick = (code: string) => {
     const targetObj = SUPPORTED_CURRENCIES.find(c => c.code === code);
     if (targetObj) {
-      setFromCurrency(targetObj);
+      if (code === 'MYR') {
+        setFromCurrency(targetObj);
+        setToCurrency(SUPPORTED_CURRENCIES.find(c => c.code === 'THB') || SUPPORTED_CURRENCIES[0]);
+      } else {
+        setFromCurrency(targetObj);
+        setToCurrency(SUPPORTED_CURRENCIES.find(c => c.code === 'MYR') || SUPPORTED_CURRENCIES[0]);
+      }
     }
   };
 
@@ -320,6 +326,11 @@ export default function App() {
   const selectCurrency = (currency: Currency) => {
     if (activeSelector === 'from') {
       setFromCurrency(currency);
+      if (currency.code !== 'MYR') {
+        setToCurrency(SUPPORTED_CURRENCIES.find(c => c.code === 'MYR') || SUPPORTED_CURRENCIES[0]);
+      } else if (toCurrency.code === 'MYR') {
+        setToCurrency(SUPPORTED_CURRENCIES.find(c => c.code === 'THB') || SUPPORTED_CURRENCIES[1]);
+      }
     } else if (activeSelector === 'to') {
       setToCurrency(currency);
     } else if (activeSelector === 'addDefault') {
