@@ -128,7 +128,7 @@ export default function App() {
 
   // Conversions defaults: From THB to MYR as requested
   const [defaultCurrencies, setDefaultCurrencies] = useState<string[]>(() => {
-    const saved = localStorage.getItem('ratefast_default_currencies');
+    const saved = localStorage.getItem('ratefast_default_currencies_v2');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -139,11 +139,11 @@ export default function App() {
         console.error('Error parsing default currencies from localStorage', e);
       }
     }
-    return ['MYR', 'THB', 'SGD'];
+    return ['THB', 'USD', 'SGD'];
   });
 
   useEffect(() => {
-    localStorage.setItem('ratefast_default_currencies', JSON.stringify(defaultCurrencies));
+    localStorage.setItem('ratefast_default_currencies_v2', JSON.stringify(defaultCurrencies));
   }, [defaultCurrencies]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
