@@ -10,44 +10,16 @@ import {
   Check, 
   Info,
   TrendingUp,
-  Globe
+  Globe,
+  Settings,
+  Plus,
+  Trash2,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SUPPORTED_CURRENCIES, POPULAR_CURRENCIES, Currency } from './currencies';
-
-const CURRENCY_NAMES_ZH: Record<string, { name: string; localName: string; country: string }> = {
-  THB: { name: '泰铢', localName: '泰铢 (THB)', country: '泰国' },
-  MYR: { name: '林吉特', localName: '马来西亚林吉特 (MYR)', country: '马来西亚' },
-  USD: { name: '美元', localName: '美元 (USD)', country: '美国' },
-  EUR: { name: '欧元', localName: '欧元 (EUR)', country: '欧洲联盟' },
-  GBP: { name: '英镑', localName: '英镑 (GBP)', country: '英国' },
-  JPY: { name: '日元', localName: '日元 (JPY)', country: '日本' },
-  CNY: { name: '人民币', localName: '人民币 (CNY)', country: '中国' },
-  SGD: { name: '新币', localName: '新加坡元 (SGD)', country: '新加坡' },
-  AUD: { name: '澳元', localName: '澳大利亚元 (AUD)', country: '澳大利亚' },
-  CAD: { name: '加元', localName: '加拿大元 (CAD)', country: '加拿大' },
-  CHF: { name: '法郎', localName: '瑞士法郎 (CHF)', country: '瑞士' },
-  HKD: { name: '港币', localName: '港币 (HKD)', country: '中国香港' },
-  INR: { name: '卢比', localName: '印度卢比 (INR)', country: '印度' },
-  KRW: { name: '韩元', localName: '韩元 (KRW)', country: '韩国' },
-  IDR: { name: '印尼盾', localName: '印尼盾 (IDR)', country: '印度尼西亚' },
-  PHP: { name: '比索', localName: '菲律宾比索 (PHP)', country: '菲律宾' },
-  BRL: { name: '雷亚尔', localName: '巴西雷亚尔 (BRL)', country: '巴西' },
-  MXN: { name: '比索', localName: '墨西哥比索 (MXN)', country: '墨西哥' },
-  ZAR: { name: '兰特', localName: '南非兰特 (ZAR)', country: '南非' },
-  NZD: { name: '新西兰元', localName: '新西兰元 (NZD)', country: '新西兰' },
-  SEK: { name: '克朗', localName: '瑞典克朗 (SEK)', country: '瑞典' },
-  NOK: { name: '克朗', localName: '挪威克朗 (NOK)', country: '挪威' },
-  DKK: { name: '克朗', localName: '丹麦克朗 (DKK)', country: '丹麦' },
-  PLN: { name: '兹罗提', localName: '波兰兹罗提 (PLN)', country: '波兰' },
-  TRY: { name: '里拉', localName: '土耳其里拉 (TRY)', country: '土耳其' },
-  ILS: { name: '谢克尔', localName: '以色列新谢克尔 (ILS)', country: '以色列' },
-  HUF: { name: '福林', localName: '匈牙利福林 (HUF)', country: '匈牙利' },
-  CZK: { name: '克朗', localName: '捷克克朗 (CZK)', country: '捷克' },
-  BGN: { name: '列弗', localName: '保加利亚列弗 (BGN)', country: '保加利亚' },
-  RON: { name: '列伊', localName: '罗马尼亚列伊 (RON)', country: '罗马尼亚' },
-  ISK: { name: '克朗', localName: '冰岛克朗 (ISK)', country: '冰岛' }
-};
+import { CURRENCY_NAMES_ZH } from './translations_zh';
 
 const TRANSLATIONS = {
   zh: {
@@ -77,7 +49,14 @@ const TRANSLATIONS = {
     liveRates: "实时汇率",
     serviceOffline: "服务离线",
     quickConvert: "快速转换",
-    lastSyncLabel: "最后同步"
+    lastSyncLabel: "最后同步",
+    settingsTitle: "默认货币设置",
+    settingsSub: "选择 1 至 3 个常用货币，它们会显示在首页顶部。",
+    addCurrency: "添加货币",
+    maxCurrenciesAlert: "最多只能选择 3 个默认货币",
+    alreadyAdded: "该货币已在默认列表中",
+    settingsClose: "完成",
+    selectDefaultCurrencies: "添加默认货币"
   },
   en: {
     title: "Real-time Currency Converter",
@@ -106,8 +85,15 @@ const TRANSLATIONS = {
     liveRates: "Live rates",
     serviceOffline: "Service Offline",
     quickConvert: "Quick Convert",
-    lastSyncLabel: "Last Sync"
-  }
+    lastSyncLabel: "Last Sync",
+    settingsTitle: "Default Currencies",
+    settingsSub: "Select 1 to 3 preferred currencies to display at the top.",
+    addCurrency: "Add Currency",
+    maxCurrenciesAlert: "You can select up to 3 default currencies",
+    alreadyAdded: "This currency is already in the list",
+    settingsClose: "Done",
+    selectDefaultCurrencies: "Add Default Currency"
+}
 };
 
 export function RateFastLogo({ className = "w-8 h-8" }: { className?: string }) {
@@ -141,21 +127,41 @@ export default function App() {
   };
 
   // Conversions defaults: From THB to MYR as requested
+  const [defaultCurrencies, setDefaultCurrencies] = useState<string[]>(() => {
+    const saved = localStorage.getItem('ratefast_default_currencies');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        console.error('Error parsing default currencies from localStorage', e);
+      }
+    }
+    return ['MYR', 'THB', 'SGD'];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ratefast_default_currencies', JSON.stringify(defaultCurrencies));
+  }, [defaultCurrencies]);
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   const [fromCurrency, setFromCurrency] = useState<Currency>(
-    () => SUPPORTED_CURRENCIES.find(c => c.code === 'THB') || SUPPORTED_CURRENCIES[0]
+    () => SUPPORTED_CURRENCIES.find(c => c.code === 'MYR') || SUPPORTED_CURRENCIES[0]
   );
   const [toCurrency, setToCurrency] = useState<Currency>(
-    () => SUPPORTED_CURRENCIES.find(c => c.code === 'MYR') || SUPPORTED_CURRENCIES[1]
+    () => SUPPORTED_CURRENCIES.find(c => c.code === 'THB') || SUPPORTED_CURRENCIES[1]
   );
 
-  const tabOptions = ['THB', 'SGD', 'USD'];
   const currentTabs = useMemo(() => {
-    const list = [...tabOptions];
+    const list = [...defaultCurrencies];
     if (!list.includes(fromCurrency.code)) {
       list.push(fromCurrency.code);
     }
     return list;
-  }, [fromCurrency.code]);
+  }, [defaultCurrencies, fromCurrency.code]);
 
   const handleTabClick = (code: string) => {
     const targetObj = SUPPORTED_CURRENCIES.find(c => c.code === code);
@@ -171,11 +177,17 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
 
   const syncTime = useMemo(() => {
-    return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    if (!lastUpdated) return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    try {
+      const date = new Date(lastUpdated);
+      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    } catch {
+      return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
   }, [lastUpdated, isLoading]);
 
   // States for custom Search Dropdown Popover / Modal
-  const [activeSelector, setActiveSelector] = useState<'from' | 'to' | null>(null);
+  const [activeSelector, setActiveSelector] = useState<'from' | 'to' | 'addDefault' | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -184,10 +196,9 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
     
-    // If from and to currency are the same, no need to fetch rates (rate is 1)
     if (fromCurrency.code === toCurrency.code) {
       setRates({ [toCurrency.code]: 1 });
-      setLastUpdated(new Date().toISOString().split('T')[0]);
+      setLastUpdated(new Date().toUTCString());
       setError(null);
       return;
     }
@@ -196,8 +207,7 @@ export default function App() {
       setIsLoading(true);
       setError(null);
       try {
-        // Fetch all rates for base baseCode to support instant toCurrency changes
-        const response = await fetch(`https://api.frankfurter.dev/v1/latest?base=${fromCurrency.code}`);
+        const response = await fetch(`https://open.er-api.com/v6/latest/${fromCurrency.code}`);
         if (!response.ok) {
           throw new Error(`API error (status ${response.status}) while retrieving rates for ${fromCurrency.code}.`);
         }
@@ -206,8 +216,10 @@ export default function App() {
         if (isMounted) {
           if (data && data.rates) {
             setRates(data.rates);
-            if (data.date) {
-              setLastUpdated(data.date);
+            if (data.time_last_update_utc) {
+              setLastUpdated(data.time_last_update_utc);
+            } else {
+              setLastUpdated(new Date().toUTCString());
             }
           } else {
             throw new Error('Received unexpected empty data format from server.');
@@ -240,15 +252,15 @@ export default function App() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`https://api.frankfurter.dev/v1/latest?base=${fromCurrency.code}`);
+      const response = await fetch(`https://open.er-api.com/v6/latest/${fromCurrency.code}`);
       if (!response.ok) {
         throw new Error(`Failed to refresh database data (status ${response.status}).`);
       }
       const data = await response.json();
       if (data && data.rates) {
         setRates(data.rates);
-        if (data.date) {
-          setLastUpdated(data.date);
+        if (data.time_last_update_utc) {
+          setLastUpdated(data.time_last_update_utc);
         }
       }
     } catch (err: any) {
@@ -260,16 +272,11 @@ export default function App() {
 
   // Safe manual input value cleanser
   const handleAmountChange = (value: string) => {
-    // Keep only numbers, a single comma/dot, and remove unnecessary chars
     const cleaned = value.replace(/[^0-9.]/g, '');
-    
-    // Ensure at most one decimal point
     const parts = cleaned.split('.');
     if (parts.length > 2) {
-      return; // Ignore key if multiple dots
+      return;
     }
-    
-    // Don't allow values matching weird multiple dots/chars
     setAmount(cleaned);
   };
 
@@ -286,7 +293,6 @@ export default function App() {
       };
     }
 
-    // Direct exchange rate
     let activeRate = 1;
     if (fromCurrency.code !== toCurrency.code) {
       activeRate = rates[toCurrency.code] || 0;
@@ -316,10 +322,108 @@ export default function App() {
       setFromCurrency(currency);
     } else if (activeSelector === 'to') {
       setToCurrency(currency);
+    } else if (activeSelector === 'addDefault') {
+      if (defaultCurrencies.includes(currency.code)) {
+        alert(t.alreadyAdded);
+      } else if (defaultCurrencies.length >= 3) {
+        alert(t.maxCurrenciesAlert);
+      } else {
+        setDefaultCurrencies([...defaultCurrencies, currency.code]);
+      }
     }
     setActiveSelector(null);
     setSearchQuery('');
   };
+
+  // Default currencies operations
+  const deleteDefaultCurrency = (code: string) => {
+    if (defaultCurrencies.length <= 1) return;
+    setDefaultCurrencies(defaultCurrencies.filter(c => c !== code));
+  };
+
+  const moveDefaultCurrencyUp = (index: number) => {
+    if (index <= 0) return;
+    const newList = [...defaultCurrencies];
+    const temp = newList[index];
+    newList[index] = newList[index - 1];
+    newList[index - 1] = temp;
+    setDefaultCurrencies(newList);
+  };
+
+  const moveDefaultCurrencyDown = (index: number) => {
+    if (index >= defaultCurrencies.length - 1) return;
+    const newList = [...defaultCurrencies];
+    const temp = newList[index];
+    newList[index] = newList[index + 1];
+    newList[index + 1] = temp;
+    setDefaultCurrencies(newList);
+  };
+
+  // Dynamic presets based on currency rate
+  const presets = useMemo(() => {
+    const code = fromCurrency.code;
+    
+    // 1. Static lookup for popular currencies
+    const PRESETS_BY_CURRENCY: Record<string, number[]> = {
+      USD: [10, 50, 100],
+      EUR: [10, 50, 100],
+      GBP: [10, 50, 100],
+      CHF: [10, 50, 100],
+      CAD: [10, 50, 100],
+      AUD: [20, 50, 100],
+      SGD: [10, 50, 100],
+      NZD: [20, 50, 100],
+      HKD: [100, 500, 1000],
+      CNY: [50, 100, 500],
+      MYR: [50, 100, 500],
+      THB: [100, 500, 1000],
+      PHP: [500, 1000, 5000],
+      INR: [500, 1000, 5000],
+      JPY: [1000, 5000, 10000],
+      KRW: [10000, 50000, 100000],
+      IDR: [50000, 100000, 500000],
+      VND: [100000, 500000, 1000000],
+      TWD: [500, 1000, 5000]
+    };
+    
+    if (PRESETS_BY_CURRENCY[code]) {
+      return PRESETS_BY_CURRENCY[code];
+    }
+    
+    // 2. Dynamic rounding helper for exotic currencies
+    const rateToUsd = rates['USD'];
+    if (!rateToUsd) return [10, 50, 100]; // fallback
+    
+    const usdValueInCurrency = 1 / rateToUsd; // How much of 'code' is 1 USD
+    
+    // Let's compute bases for 10, 50, 100 USD
+    const base10 = 10 * usdValueInCurrency;
+    const base50 = 50 * usdValueInCurrency;
+    const base100 = 100 * usdValueInCurrency;
+    
+    const roundToNiceNumber = (num: number) => {
+      if (num <= 0) return 1;
+      const magnitude = Math.pow(10, Math.floor(Math.log10(num)));
+      const normalized = num / magnitude;
+      
+      let roundedNormalized = 1;
+      if (normalized >= 7.5) {
+        roundedNormalized = 10;
+      } else if (normalized >= 3.5) {
+        roundedNormalized = 5;
+      } else if (normalized >= 1.5) {
+        roundedNormalized = 2;
+      }
+      
+      return roundedNormalized * magnitude;
+    };
+    
+    return [
+      roundToNiceNumber(base10),
+      roundToNiceNumber(base50),
+      roundToNiceNumber(base100)
+    ];
+  }, [fromCurrency.code, rates]);
 
   // Quick swap presets for the footer of the converter
   const applyPreset = (fromCode: string, toCode: string) => {
@@ -405,7 +509,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Language switching header navigation */}
+        {/* Language switching & Settings header navigation */}
         <div className="flex items-center gap-2" id="header_nav_controls">
           <div className="flex items-center space-x-1.5 mr-1 bg-slate-50 border border-slate-200/50 rounded-lg px-2 py-1 text-[10px] font-semibold text-slate-500">
             <span className={`w-1.5 h-1.5 rounded-full ${error ? 'bg-red-500' : 'bg-green-500 animate-pulse'}`}></span>
@@ -415,12 +519,22 @@ export default function App() {
           <button
             type="button"
             onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
-            className="flex items-center gap-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 font-bold px-2.5 py-1.5 rounded-xl text-xs transition-all cursor-pointer border border-slate-200/50 hover:border-blue-200/50"
+            className="flex items-center gap-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 font-bold px-2.5 py-1.5 rounded-xl text-xs transition-all cursor-pointer border border-slate-200/50 hover:border-blue-200/50 h-8"
             id="lang_switch_toggle"
             title={lang === 'zh' ? 'Switch to English' : '切换至中文'}
           >
             <Globe className="w-3.5 h-3.5" />
             <span>{lang === 'zh' ? 'English' : '中文'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsSettingsOpen(true)}
+            className="flex items-center justify-center bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 p-2 rounded-xl transition-all cursor-pointer border border-slate-200/50 hover:border-blue-200/50 h-8 w-8"
+            id="settings_toggle_btn"
+            title={lang === 'zh' ? '设置' : 'Settings'}
+          >
+            <Settings className="w-4 h-4" />
           </button>
         </div>
       </header>
@@ -495,18 +609,25 @@ export default function App() {
           </div>
 
           {/* INPUT CURRENCY SOURCE BLOCK */}
-          <div className="space-y-1.5" id="input_source_block">
+          <div className="space-y-2" id="input_source_block">
             <div className="flex justify-between items-center px-1">
-              <span className="text-xs font-extrabold text-[#9da8b6] block">
-                {getCurrencyFullName(fromCurrency)}
-              </span>
+              <button
+                type="button"
+                onClick={() => setActiveSelector('from')}
+                className="flex items-center gap-1.5 bg-slate-50 hover:bg-blue-50/70 text-slate-800 font-extrabold px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer border border-slate-200/50 hover:border-blue-200/50"
+              >
+                <span className="text-sm">{fromCurrency.flag}</span>
+                <span>{fromCurrency.code} · {lang === 'zh' ? (CURRENCY_NAMES_ZH[fromCurrency.code]?.name || fromCurrency.name) : fromCurrency.name}</span>
+                <ChevronDown className="w-3 h-3 text-slate-500" />
+              </button>
+              
               <button
                 type="button"
                 onClick={() => setActiveSelector('from')}
                 className="text-[10px] text-blue-600 hover:text-blue-800 font-extrabold flex items-center gap-1 transition-all cursor-pointer"
               >
                 <Search className="w-2.5 h-2.5" />
-                <span>{lang === 'zh' ? '搜索国家/货币' : 'Search Country/Currency'}</span>
+                <span>{lang === 'zh' ? '搜索货币' : 'Search'}</span>
               </button>
             </div>
             <div className="flex items-center w-full bg-[#f4f6fa]/70 rounded-2xl px-5 py-4 focus-within:ring-2 focus-within:ring-blue-500/10 transition-all border border-transparent focus-within:border-blue-200/50">
@@ -522,15 +643,6 @@ export default function App() {
                 placeholder={t.placeholder}
                 className="w-full text-2xl font-black text-slate-800 bg-transparent focus:outline-none placeholder-slate-300 font-sans p-0 border-none"
               />
-              <button
-                type="button"
-                onClick={() => setActiveSelector('from')}
-                className="ml-2 hover:bg-slate-250/40 p-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
-                title="Change Source Currency"
-              >
-                <span className="text-xl filter drop-shadow-xs">{fromCurrency.flag}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-              </button>
             </div>
           </div>
 
@@ -548,18 +660,25 @@ export default function App() {
           </div>
 
           {/* RECIPIENT TARGET TARGET BLOCK */}
-          <div className="space-y-1.5" id="target_recipient_block">
+          <div className="space-y-2" id="target_recipient_block">
             <div className="flex justify-between items-center px-1">
-              <span className="text-xs font-extrabold text-[#9da8b6] block">
-                {getCurrencyFullName(toCurrency)}
-              </span>
+              <button
+                type="button"
+                onClick={() => setActiveSelector('to')}
+                className="flex items-center gap-1.5 bg-slate-50 hover:bg-blue-50/70 text-slate-800 font-extrabold px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer border border-slate-200/50 hover:border-blue-200/50"
+              >
+                <span className="text-sm">{toCurrency.flag}</span>
+                <span>{toCurrency.code} · {lang === 'zh' ? (CURRENCY_NAMES_ZH[toCurrency.code]?.name || toCurrency.name) : toCurrency.name}</span>
+                <ChevronDown className="w-3 h-3 text-slate-500" />
+              </button>
+
               <button
                 type="button"
                 onClick={() => setActiveSelector('to')}
                 className="text-[10px] text-blue-600 hover:text-blue-800 font-extrabold flex items-center gap-1 transition-all cursor-pointer"
               >
                 <Search className="w-2.5 h-2.5" />
-                <span>{lang === 'zh' ? '搜索国家/货币' : 'Search Country/Currency'}</span>
+                <span>{lang === 'zh' ? '搜索货币' : 'Search'}</span>
               </button>
             </div>
             <div className="flex items-center w-full bg-[#f4f6fa]/70 rounded-2xl px-5 py-4 transition-all border border-transparent">
@@ -575,15 +694,6 @@ export default function App() {
                   formatMoney(conversionData.convertedValue, 2)
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => setActiveSelector('to')}
-                className="ml-2 hover:bg-slate-250/40 p-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
-                title="Change Recipient Currency"
-              >
-                <span className="text-xl filter drop-shadow-xs">{toCurrency.flag}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-              </button>
             </div>
           </div>
 
@@ -593,27 +703,16 @@ export default function App() {
               {t.quickConvert}
             </span>
             <div className="flex items-center gap-2.5" id="quick_presets_row_action">
-              <button
-                type="button"
-                onClick={() => setAmount('50')}
-                className="bg-[#f8fafc] hover:bg-blue-50/50 text-slate-700 hover:text-blue-100/80 font-extrabold border border-slate-200/40 hover:border-blue-200 py-3.5 px-4 rounded-2xl flex-1 text-center text-xs transition-all shadow-2xs hover:shadow-xs cursor-pointer"
-              >
-                50 {fromCurrency.symbol}
-              </button>
-              <button
-                type="button"
-                onClick={() => setAmount('500')}
-                className="bg-[#f8fafc] hover:bg-blue-50/50 text-slate-700 hover:text-blue-150/80 font-extrabold border border-slate-200/40 hover:border-blue-200 py-3.5 px-4 rounded-2xl flex-1 text-center text-xs transition-all shadow-2xs hover:shadow-xs cursor-pointer"
-              >
-                500 {fromCurrency.symbol}
-              </button>
-              <button
-                type="button"
-                onClick={() => setAmount('1000')}
-                className="bg-[#f8fafc] hover:bg-blue-50/50 text-slate-700 hover:text-blue-200/80 font-extrabold border border-slate-200/40 hover:border-blue-200 py-3.5 px-4 rounded-2xl flex-1 text-center text-xs transition-all shadow-2xs hover:shadow-xs cursor-pointer"
-              >
-                1,000 {fromCurrency.symbol}
-              </button>
+              {presets.map((val) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setAmount(val.toString())}
+                  className="bg-[#f8fafc] hover:bg-blue-50/50 text-slate-700 hover:text-blue-600 font-extrabold border border-slate-200/40 hover:border-blue-200 py-3.5 px-4 rounded-2xl flex-1 text-center text-xs transition-all shadow-2xs hover:shadow-xs cursor-pointer"
+                >
+                  {formatMoney(val, 0)} {fromCurrency.symbol}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -647,14 +746,16 @@ export default function App() {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 15 }}
               transition={{ type: 'spring', duration: 0.4 }}
-              className="relative bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[75vh] border border-slate-100"
+              className="relative bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[75vh] border border-slate-100 z-10"
               id="search-modal-content"
             >
               {/* Active Search Dialog Header */}
               <div className="p-4 border-b border-slate-100 flex items-center justify-between" id="search_dialog_header_id">
                 <div>
                   <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-none">
-                    {t.searchHeader + ' (' + (activeSelector === 'from' ? (lang === 'zh' ? '源货币' : 'Source') : (lang === 'zh' ? '目标货币' : 'Target')) + ')'}
+                    {activeSelector === 'addDefault' 
+                      ? t.selectDefaultCurrencies 
+                      : (t.searchHeader + ' (' + (activeSelector === 'from' ? (lang === 'zh' ? '源货币' : 'Source') : (lang === 'zh' ? '目标货币' : 'Target')) + ')')}
                   </h3>
                   <span className="text-[11px] text-slate-400 mt-1 block">
                     {t.searchSub}
@@ -700,13 +801,17 @@ export default function App() {
               <div className="flex-1 overflow-y-auto p-2.5 space-y-0.5 divide-y divide-slate-100/40" id="search_matches_view">
                 {filteredCurrencies.length > 0 ? (
                   filteredCurrencies.map((currency) => {
-                    const isSelected = activeSelector === 'from' 
-                      ? fromCurrency.code === currency.code 
-                      : toCurrency.code === currency.code;
+                    const isSelected = activeSelector === 'addDefault'
+                      ? defaultCurrencies.includes(currency.code)
+                      : (activeSelector === 'from' 
+                          ? fromCurrency.code === currency.code 
+                          : toCurrency.code === currency.code);
                       
-                    const isDisabled = activeSelector === 'from'
-                      ? toCurrency.code === currency.code
-                      : fromCurrency.code === currency.code;
+                    const isDisabled = activeSelector === 'addDefault'
+                      ? false
+                      : (activeSelector === 'from'
+                          ? toCurrency.code === currency.code
+                          : fromCurrency.code === currency.code);
 
                     return (
                       <button
@@ -735,7 +840,7 @@ export default function App() {
                               </span>
                             </div>
                             <div className="text-[11px] font-medium text-slate-500 truncate mt-0.5">
-                              {currency.name} <span className="text-slate-400">({currency.country})</span>
+                              {lang === 'zh' ? (CURRENCY_NAMES_ZH[currency.code]?.name || currency.name) : currency.name} <span className="text-slate-400">({currency.country})</span>
                             </div>
                           </div>
                         </div>
@@ -748,6 +853,11 @@ export default function App() {
                         {!isSelected && isDisabled && (
                           <span className="text-[9px] bg-slate-100 text-slate-450 px-1.5 py-0.5 rounded-md font-semibold">
                             {t.alreadySelected}
+                          </span>
+                        )}
+                        {activeSelector === 'addDefault' && isSelected && (
+                          <span className="text-[9px] bg-blue-55/70 text-blue-600 px-1.5 py-0.5 rounded-md font-semibold ml-2">
+                            {t.alreadyAdded}
                           </span>
                         )}
                       </button>
@@ -769,6 +879,155 @@ export default function App() {
               {/* Selector modal footer status summary indicator */}
               <div className="p-3 bg-slate-50 border-t border-slate-100 text-center text-[10px] text-slate-400 font-extrabold uppercase tracking-wider" id="search_modal_footer">
                 {t.showingCount.replace('{count}', filteredCurrencies.length.toString())}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* SETTINGS DRAWER / BOTTOM SHEET */}
+      <AnimatePresence>
+        {isSettingsOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 min-h-screen" id="settings_modal_root">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSettingsOpen(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs cursor-pointer"
+            />
+
+            {/* Bottom Sheet / Modal */}
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="relative bg-white w-full sm:max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[75vh] border border-slate-100 pb-safe z-10"
+              id="settings-drawer-content"
+            >
+              {/* Header */}
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 leading-none">
+                    {t.settingsTitle}
+                  </h3>
+                  <span className="text-xs text-slate-400 mt-1.5 block">
+                    {t.settingsSub}
+                  </span>
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="bg-slate-100 hover:bg-slate-205 text-slate-500 hover:text-slate-800 p-2.5 rounded-full transition-all cursor-pointer"
+                  title="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* List of default currencies */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {defaultCurrencies.map((code, index) => {
+                  const currency = SUPPORTED_CURRENCIES.find(c => c.code === code) || {
+                    code,
+                    flag: '🏳️',
+                    name: 'Unknown Currency',
+                    country: 'Global',
+                    symbol: code
+                  };
+                  const nameZh = CURRENCY_NAMES_ZH[code]?.name;
+                  const displayName = lang === 'zh' && nameZh ? nameZh : currency.name;
+
+                  return (
+                    <div 
+                      key={code} 
+                      className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-100 rounded-2xl"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className="text-2xl filter drop-shadow-xs">{currency.flag}</span>
+                        <div>
+                          <span className="font-extrabold text-slate-900 text-sm">{code}</span>
+                          <span className="text-xs text-slate-500 ml-2">{displayName}</span>
+                        </div>
+                      </div>
+
+                      {/* Controls: Reorder and Delete */}
+                      <div className="flex items-center gap-1">
+                        {/* Move Up */}
+                        <button
+                          type="button"
+                          onClick={() => moveDefaultCurrencyUp(index)}
+                          disabled={index === 0}
+                          className={`p-1.5 rounded-lg border border-slate-200/50 hover:bg-white text-slate-500 transition-colors ${
+                            index === 0 ? 'opacity-35 cursor-not-allowed' : 'cursor-pointer hover:text-blue-600'
+                          }`}
+                          title="Move Up"
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Move Down */}
+                        <button
+                          type="button"
+                          onClick={() => moveDefaultCurrencyDown(index)}
+                          disabled={index === defaultCurrencies.length - 1}
+                          className={`p-1.5 rounded-lg border border-slate-200/50 hover:bg-white text-slate-500 transition-colors ${
+                            index === defaultCurrencies.length - 1 ? 'opacity-35 cursor-not-allowed' : 'cursor-pointer hover:text-blue-600'
+                          }`}
+                          title="Move Down"
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Delete */}
+                        <button
+                          type="button"
+                          onClick={() => deleteDefaultCurrency(code)}
+                          disabled={defaultCurrencies.length <= 1}
+                          className={`p-1.5 rounded-lg border border-slate-200/50 hover:bg-red-50 text-red-500 transition-colors ${
+                            defaultCurrencies.length <= 1 ? 'opacity-35 cursor-not-allowed' : 'cursor-pointer hover:text-red-750 hover:border-red-100'
+                          }`}
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add currency button and Done button */}
+              <div className="p-4 border-t border-slate-100 flex flex-col gap-2.5 bg-slate-50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (defaultCurrencies.length >= 3) {
+                      alert(t.maxCurrenciesAlert);
+                    } else {
+                      setActiveSelector('addDefault');
+                    }
+                  }}
+                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-xs sm:text-sm border transition-all cursor-pointer ${
+                    defaultCurrencies.length >= 3
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                      : 'bg-white hover:bg-blue-50 text-blue-600 border-blue-200 hover:border-blue-300 shadow-sm'
+                  }`}
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{t.addCurrency} ({defaultCurrencies.length}/3)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-extrabold text-xs sm:text-sm transition-all shadow-md shadow-blue-500/20 cursor-pointer text-center"
+                >
+                  {t.settingsClose}
+                </button>
               </div>
             </motion.div>
           </div>
