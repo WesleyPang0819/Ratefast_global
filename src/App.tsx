@@ -23,7 +23,7 @@ import { CURRENCY_NAMES_ZH } from './translations_zh';
 
 const TRANSLATIONS = {
   zh: {
-    title: "实时汇率转换",
+    title: "市场汇率转换",
     tagline: "快速全球货币兑换",
     youSend: "您发送",
     recipientGets: "收款人收到",
@@ -46,10 +46,11 @@ const TRANSLATIONS = {
     alreadySelected: "已设为相同货币",
     placeholder: "0.00",
     clear: "清除",
-    liveRates: "实时汇率",
+    liveRates: "市场参考汇率",
     serviceOffline: "服务离线",
     quickConvert: "快速转换",
     lastSyncLabel: "最后同步",
+    lastCheckedLabel: "最后检查",
     settingsTitle: "默认货币设置",
     settingsSub: "选择 1 至 3 个常用货币，它们会显示在首页顶部。",
     addCurrency: "添加货币",
@@ -59,7 +60,7 @@ const TRANSLATIONS = {
     selectDefaultCurrencies: "添加默认货币"
   },
   en: {
-    title: "Real-time Currency Converter",
+    title: "Market Currency Converter",
     tagline: "Fast global currency exchange",
     youSend: "You send",
     recipientGets: "Recipient gets",
@@ -82,10 +83,11 @@ const TRANSLATIONS = {
     alreadySelected: "Already selected",
     placeholder: "0.00",
     clear: "Clear",
-    liveRates: "Live rates",
+    liveRates: "Market reference rate",
     serviceOffline: "Service Offline",
     quickConvert: "Quick Convert",
     lastSyncLabel: "Last Sync",
+    lastCheckedLabel: "Last Checked",
     settingsTitle: "Default Currencies",
     settingsSub: "Select 1 to 3 preferred currencies to display at the top.",
     addCurrency: "Add Currency",
@@ -235,16 +237,17 @@ export default function App() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
 
-  const syncTime = useMemo(() => {
-    if (!lastUpdated) return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
-    try {
-      const date = new Date(lastUpdated);
-      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
-    } catch {
-      return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
-    }
-  }, [lastUpdated, isLoading]);
+  const checkedTime = useMemo(() => {
+    const date = lastChecked || new Date();
+    return date.toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+  }, [lastChecked, lang]);
 
   // States for custom Search Dropdown Popover / Modal
   const [activeSelector, setActiveSelector] = useState<'from' | 'to' | 'addDefault' | null>(null);
@@ -259,12 +262,13 @@ export default function App() {
     if (fromCurrency.code === toCurrency.code) {
       setRates({ [toCurrency.code]: 1 });
       setLastUpdated(new Date().toUTCString());
+      setLastChecked(new Date());
       setError(null);
       return;
     }
 
-    const fetchRates = async () => {
-      setIsLoading(true);
+    const fetchRates = async (showLoading = true) => {
+      if (showLoading) setIsLoading(true);
       setError(null);
       try {
         const response = await fetch(`https://open.er-api.com/v6/latest/${fromCurrency.code}`);
@@ -276,6 +280,7 @@ export default function App() {
         if (isMounted) {
           if (data && data.rates) {
             setRates(data.rates);
+            setLastChecked(new Date());
             if (data.time_last_update_utc) {
               setLastUpdated(data.time_last_update_utc);
             } else {
@@ -293,42 +298,23 @@ export default function App() {
           );
         }
       } finally {
-        if (isMounted) {
+        if (isMounted && showLoading) {
           setIsLoading(false);
         }
       }
     };
 
-    fetchRates();
+    fetchRates(true);
+
+    const intervalId = setInterval(() => {
+      fetchRates(false);
+    }, 60000);
 
     return () => {
       isMounted = false;
+      clearInterval(intervalId);
     };
   }, [fromCurrency.code]);
-
-  // Handle key manual refresh
-  const triggerManualRefresh = async () => {
-    if (fromCurrency.code === toCurrency.code) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`https://open.er-api.com/v6/latest/${fromCurrency.code}`);
-      if (!response.ok) {
-        throw new Error(`Failed to refresh database data (status ${response.status}).`);
-      }
-      const data = await response.json();
-      if (data && data.rates) {
-        setRates(data.rates);
-        if (data.time_last_update_utc) {
-          setLastUpdated(data.time_last_update_utc);
-        }
-      }
-    } catch (err: any) {
-      setError(err.message || "Refresh failed. Please check your internet connection.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Safe manual input value cleanser
   const handleAmountChange = (value: string) => {
@@ -614,7 +600,7 @@ export default function App() {
 
         {/* Big styled core title matching image */}
         <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-6 font-sans text-center tracking-tight">
-          {lang === 'zh' ? '实时汇率转换' : 'Real-time Exchange Rate'}
+          {lang === 'zh' ? '市场汇率转换' : 'Market Exchange Rate'}
         </h2>
 
         {/* Tab switch control pill matching image - enhanced to be globally dynamic and support THB, SGD, USD + any selected */}
@@ -659,17 +645,7 @@ export default function App() {
             </div>
 
             <div className="flex justify-between items-center text-[11px] text-blue-100/80 mt-1">
-              <span>{lang === 'zh' ? '最后同步' : 'Last Sync'}: {syncTime}</span>
-              {!isLoading && (
-                <button
-                  type="button"
-                  onClick={triggerManualRefresh}
-                  className="hover:text-white transition-colors flex items-center gap-1 font-bold cursor-pointer"
-                  title={t.refreshTitle}
-                >
-                  <RefreshCw className="w-3 h-3" />
-                </button>
-              )}
+              <span>{t.lastCheckedLabel}: {checkedTime}</span>
             </div>
           </div>
 
@@ -783,12 +759,8 @@ export default function App() {
         </div>
 
         {/* Install App Button Container */}
-        <div className="w-full mt-10 flex justify-center">
-          {isStandalone ? (
-            <div className="text-xs text-slate-400 font-bold bg-slate-100 px-4 py-2.5 rounded-full border border-slate-200/50">
-              App 已安装
-            </div>
-          ) : (
+        {!isStandalone && (
+          <div className="w-full mt-10 flex justify-center">
             <motion.button
               type="button"
               onClick={() => setIsInstallModalOpen(true)}
@@ -812,8 +784,8 @@ export default function App() {
               </svg>
               <span>安装 App</span>
             </motion.button>
-          )}
-        </div>
+          </div>
+        )}
 
       </main>
 
